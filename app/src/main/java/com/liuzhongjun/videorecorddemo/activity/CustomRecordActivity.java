@@ -137,7 +137,6 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
         // 设置Surface不需要维护自己的缓冲区
         mSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         // 设置分辨率
-
         mSurfaceHolder.setFixedSize(surfaceHolderWidth, surfaceHolderHeight);
         // 设置该组件不会让屏幕自动关闭
         mSurfaceHolder.setKeepScreenOn(true);
@@ -183,10 +182,6 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
         //根据width和height去选取Camera最优预览尺寸
         mSupportedVideoSizes = getSupportedVideoSizes(mCamera);
-        //打印自带摄像头支持的分辨率
-//        for (Camera.Size str : mSupportedVideoSizes)
-//            Log.e(TAG, "mSupportedVideoSizes "+str.width + ":" + str.height + " ... "
-//                    + ((float) str.width / str.height));
         if (mSupportedVideoSizes != null) {
             mPreviewSize = getOptimalPreviewSize(mSupportedVideoSizes,
                     Math.max(surfaceHolderWidth, surfaceHolderHeight), Math.min(surfaceHolderWidth, surfaceHolderHeight));
@@ -277,31 +272,24 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
             mediaRecorder.release();
             mediaRecorder = null;
 
+            //停止计时器
             mRecordTime.stop();
-/*            //设置开始按钮可点击，停止按钮不可点击
-            mRecordControl.setEnabled(true);
-            mPauseRecord.setEnabled(false);*/
             isRecording = false;
         }
-    }
-
-    public void pauseRecord() {
-
-
     }
 
 
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
-            case R.id.tv_again_record:
+            case R.id.tv_again_record://重录按钮的点击事件
                 mIvPlay.setVisibility(View.GONE);
                 mTvAgainRecord.setVisibility(View.GONE);
                 mRecordControl.setVisibility(View.VISIBLE);
                 mRecordControl.requestFocus();
                 mRecordControl.performClick();
                 break;
-            case R.id.iv_play:
+            case R.id.iv_play://播放按钮的点击事件
                 //代表视频暂停录制，后点击中心（即继续录制视频）
                 Intent intent = new Intent(CustomRecordActivity.this, PlayVideoActivity.class);
                 Bundle bundle = new Bundle();
@@ -313,15 +301,15 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
                 intent.putExtras(bundle);
                 startActivity(intent);
                 break;
-            case R.id.record_control:
-                if (!isRecording) {
+            case R.id.record_control://录制按钮的点击事件
+                if (!isRecording) {//开始录制
                     Toast.makeText(this, "开始录制视频", Toast.LENGTH_SHORT).show();
                     //开始录制视频
                     startRecord();
                     mRecordControl.setImageResource(R.drawable.record_pause_selector);
                     mRecordControl.setEnabled(false);//1s后才能停止
                     mHandler.sendEmptyMessageDelayed(CONTROL_CODE, 1000);
-                } else {
+                } else {//停止录制
                     Toast.makeText(this, "停止录制视频", Toast.LENGTH_SHORT).show();
                     Log.d(TAG,"视频文件大小为："+FileSizeUtil.getAutoFileOrFilesSize(currentVideoFilePath));
                     mIvPlay.setVisibility(View.VISIBLE);
@@ -335,28 +323,7 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
                     stopCamera();
                     mRecordTime.stop();
                     mPauseTime = 0;
-                    //有暂停功能时，下面这段代码用于视频合成
-//                    new Thread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            try {
-//                                if (!(saveVideoPath.equals(""))) {
-//                                    String[] str = new String[]{saveVideoPath, currentVideoFilePath};
-//                                    VideoUtils.appendVideo(CustomRecordActivity.this, getSDPath(CustomRecordActivity.this) + "append.mp4", str);
-//                                    File reName = new File(saveVideoPath);
-//                                    File f = new File(getSDPath(CustomRecordActivity.this) + "append.mp4");
-//                                    f.renameTo(reName);//将合成的视频复制过来
-//                                    if (reName.exists()) {
-//                                        f.delete();
-//                                        new File(currentVideoFilePath).delete();
-//                                    }
-//                                }
-//
-//                            } catch (IOException e) {
-//                                e.printStackTrace();
-//                            }
-//                        }
-//                    }).start();
+
                 }
                 break;
         }
@@ -428,12 +395,15 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
         //设置视频的编码方式
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         CamcorderProfile mProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_480P);
+        //设置音频编码比特率
         mediaRecorder.setAudioEncodingBitRate(44100);
         if (mProfile.videoBitRate > 2 * 1024 * 1024)
-            mediaRecorder.setVideoEncodingBitRate(2 * 1024 * 1024);
+            mediaRecorder.setVideoEncodingBitRate(2 * 1024 * 1024);//设置音频的编码比特率，可以提高视频的清晰度
         else
             mediaRecorder.setVideoEncodingBitRate(1024 * 1024);
+       // 设置录制的视频帧率。必须放在设置编码和格式的后面，否则报错
         mediaRecorder.setVideoFrameRate(mProfile.videoFrameRate);
+        // 设置视频录制的分辨率。必须放在设置编码和格式的后面，否则报错
         mediaRecorder.setVideoSize(mPreviewSize.width, mPreviewSize.height);
 
         //使用SurfaceView预览
@@ -450,18 +420,14 @@ public class CustomRecordActivity extends Activity implements View.OnClickListen
     }
 
     private String getVideoName() {
-//        return "VID_" + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".mp4";
         return videoFileName;
     }
 
-
-    private void setToResult() {
-        Intent intent = new Intent();
-        intent.putExtra("videoPath", currentVideoFilePath);
-        setResult(RESULT_OK, intent);
-        finish();
-    }
-
+    /**
+     * 获得相机硬件支持的视频分辨率
+     * @param camera
+     * @return
+     */
     public List<Camera.Size> getSupportedVideoSizes(Camera camera) {
         if (camera.getParameters().getSupportedVideoSizes() != null) {
             return camera.getParameters().getSupportedVideoSizes();
